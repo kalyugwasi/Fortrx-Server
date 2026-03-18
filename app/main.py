@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.database import Base,engine
-import app.models
+import app.models,app.schemas
 app = FastAPI(title='Fortress')
 #Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
