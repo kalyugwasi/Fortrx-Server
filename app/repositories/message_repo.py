@@ -2,11 +2,11 @@ from sqlalchemy.orm import Session
 from app.models import Message
 from datetime import datetime
 
-def save_message(db:Session,sender_id,recipient_id,ciphertext,header,message_number):
+def save_message(db:Session,sender_id,recipient_id,header,message_number,blob_key):
     message = Message(
         sender_id=sender_id,
         recipient_id=recipient_id,
-        ciphertext=ciphertext,
+        blob_key=blob_key,
         header=header,
         message_number=message_number
     )

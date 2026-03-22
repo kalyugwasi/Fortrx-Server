@@ -12,7 +12,7 @@ class MessageResponse(BaseModel):
     id:int
     sender_id:int
     recipient_id:int
-    ciphertext:str
+    blob_key:str
     header:str
     message_number:int
     created_at:datetime
