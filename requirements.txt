@@ -6,3 +6,4 @@ passlib[bcrypt]==1.7.4
 cryptography
 pydantic-settings
 python-dotenv
+boto3

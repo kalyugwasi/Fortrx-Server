@@ -7,7 +7,7 @@ class Message(Base):
     id = Column(Integer,primary_key=True,index=True)
     sender_id = Column(Integer,nullable=False)
     recipient_id = Column(Integer,nullable=False)
-    ciphertext = Column(Text,nullable=False)
+    blob_key = Column(String,nullable=False)
     header = Column(Text)
     message_number = Column(Integer)
     created_at = Column(DateTime,default=datetime.utcnow)
