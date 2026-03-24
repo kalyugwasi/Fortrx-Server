@@ -36,7 +36,7 @@ def update_bundle(db:Session,bundle:KeyBundle,**fields):
     return bundle
 
 def pop_one_time_prekey(db:Session,bundle:KeyBundle):
-    keys = json.load(bundle.one_time_prekeys or "[]")
+    keys = json.loads(bundle.one_time_prekeys or "[]")
     if not keys:
         return None
     popped = keys.pop()

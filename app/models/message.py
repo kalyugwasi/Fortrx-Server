@@ -6,7 +6,7 @@ class Message(Base):
     __tablename__ = 'messages'
     id = Column(Integer,primary_key=True,index=True)
     recipient_id = Column(Integer,nullable=False)
-    sealed_blob_key = Column(String,nullable=False)
+    sealed_blob = Column(String,nullable=False)
     message_number = Column(Integer)
     created_at = Column(DateTime,default=datetime.utcnow)
     expires_at = Column(DateTime,nullable=True)

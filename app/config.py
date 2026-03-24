@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str
     S3_REGION:str = "us-east-1"
     REDIS_URL:str
-
+    RATE_LIMIT_STORAGE: str = "memory://"
+    
     class Config():
         env_file = '.env'
         env_file_encoding = 'utf-8'

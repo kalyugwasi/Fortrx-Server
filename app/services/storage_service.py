@@ -39,8 +39,8 @@ def ensure_bucket_exists():
         else:
             raise
         
-def generate_blob_key(sender_id:int,recipient_id:int):
-    return f"messages/{sender_id}/{recipient_id}/{uuid.uuid4()}"
+def generate_blob_key(recipient_id:int):
+    return f"messages/{recipient_id}/{uuid.uuid4()}"
 
 def upload_blob(blob_key:str,data:bytes):
     client = get_s3_client()

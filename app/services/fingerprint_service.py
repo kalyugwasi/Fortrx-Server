@@ -7,12 +7,12 @@ def get_safety_number(db,local_user_id:int,remote_user_id:int):
     remote_bundle = key_repo.get_bundle_by_user_id(db,remote_user_id)
     
     if not local_bundle or not remote_bundle:
-        raise HTTPException(status_code=500,detail="Invalid Key Encoding")
+        raise HTTPException(status_code=404,detail="Invalid Key Encoding")
     try:
         local_ik = base64.b64decode(local_bundle.identity_key)
         remote_ik = base64.b64decode(remote_bundle.identity_key)
     except Exception:
-        raise HTTPException(status_code=500,detail="Invalid key encoding")
+        raise HTTPException(status_code=404,detail="Invalid key encoding")
     
     from app.crypto.fingerprint import generate_safety_number
     
