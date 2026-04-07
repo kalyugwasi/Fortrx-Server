@@ -114,6 +114,7 @@ class TestKeyBundles:
 
         payload = {
             "identity_key": encode_public_key(ik["dh_public"]),
+            "signing_public": encode_public_key(ik["signing_public"]),
             "signed_prekey": encode_public_key(spk["public"]),
             "signed_prekey_signature": encode_public_key(spk["signature"]),
             "prekey_id": 1,
@@ -133,6 +134,7 @@ class TestKeyBundles:
 
         payload = {
             "identity_key": encode_public_key(ik["dh_public"]),
+            "signing_public": encode_public_key(ik["signing_public"]),
             "signed_prekey": encode_public_key(spk["public"]),
             "signed_prekey_signature": encode_public_key(spk["signature"]),
             "prekey_id": 1,
@@ -154,6 +156,9 @@ class TestKeyBundles:
         data = resp.json()
         assert data["identity_key"] == encode_public_key(
             bob_keys["identity"]["dh_public"]
+        )
+        assert data["signing_public"] == encode_public_key(
+            bob_keys["identity"]["signing_public"]
         )
         assert data["one_time_prekey"] is not None
         # verify it is valid base64

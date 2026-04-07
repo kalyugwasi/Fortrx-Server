@@ -3,9 +3,9 @@ from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler
 from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
-from app.database import Base,engine,SessionLocal
-import app.models,app.schemas,app.crypto,app.services
-from app.routers import auth,keys,messages,ws,safety
+from app.database import Base,engine,SessionLocal,ensure_key_bundle_schema
+import app.models,app.schemas,app.services
+from app.routers import auth,keys,messages,ws,safety,presence
 from app.services import ensure_bucket_exists,purge_expired_messages
 from app.middleware import limiter,SecurityHeadersMiddleware
 
@@ -27,6 +27,7 @@ async def expired_message_cleanup():
 async def lifespan(app: FastAPI):
     #Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    ensure_key_bundle_schema()
     ensure_bucket_exists()
     cleanup_task = asyncio.create_task(expired_message_cleanup())
     yield
@@ -38,6 +39,7 @@ app.include_router(auth.router)
 app.include_router(messages.router)
 app.include_router(ws.router)
 app.include_router(safety.router)
+app.include_router(presence.router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
 app.add_middleware(SecurityHeadersMiddleware)

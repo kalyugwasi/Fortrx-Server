@@ -20,4 +20,4 @@ async def subscribe_to_user(user_id:int):
 async def unsubscribe_from_user(pubsub,r):
     await pubsub.unsubscribe()
     await pubsub.close()
-    await r.close()
+    await r.aclose()

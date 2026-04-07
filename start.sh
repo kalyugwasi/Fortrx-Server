@@ -1,10 +1,8 @@
 #!/bin/sh
-
-echo "Waiting for DB..."
-sleep 3
+set -eu
 
 echo "Running migrations..."
-alembic upgrade head
+alembic -c /app/alembic.ini upgrade head
 
 echo "Starting app..."
-exec python run.py
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000

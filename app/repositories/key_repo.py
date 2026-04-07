@@ -8,18 +8,24 @@ def create_bundle(
     db:Session,
     user_id:int,
     identity_key:str,
+    signing_public:str,
     signed_prekey:str,
     signed_prekey_signature:str,
     prekey_id:int,
-    one_time_prekeys:list[str]
+    one_time_prekeys:list[str],
+    kyber_prekey_public: str | None = None,
+    kyber_prekey_signature: str | None = None
     ):
     bundle = KeyBundle(
         user_id=user_id,
         identity_key=identity_key,
+        signing_public=signing_public,
         signed_prekey=signed_prekey,
         signed_prekey_signature=signed_prekey_signature,
         prekey_id=prekey_id,
-        one_time_prekeys=one_time_prekeys
+        one_time_prekeys=one_time_prekeys,
+        kyber_prekey_public=kyber_prekey_public,
+        kyber_prekey_signature=kyber_prekey_signature
     )
     db.add(bundle)
     db.commit()

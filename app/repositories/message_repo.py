@@ -1,6 +1,11 @@
-from datetime import datetime, UTC, timezone
+from datetime import datetime, timezone
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.models import Message
+
+
+def _utcnow_naive():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 def save_message(db:Session,recipient_id,message_number,sealed_blob,expires_at=None):
     message = Message(
@@ -14,10 +19,15 @@ def save_message(db:Session,recipient_id,message_number,sealed_blob,expires_at=N
     db.refresh(message)
     return message
 
+def get_message_by_id(db: Session, message_id: int):
+    return db.query(Message).filter(Message.id == message_id).first()
+
 def get_message_for_user(db:Session,user_id:int):
+    now = _utcnow_naive()
     return (
         db.query(Message)
         .filter(Message.recipient_id==user_id)
+        .filter(or_(Message.expires_at.is_(None), Message.expires_at > now))
         .order_by(Message.created_at.asc())
         .all()
     )
@@ -30,8 +40,8 @@ def delete_message(db:Session,message_id:int):
     return message
 
 def get_expired_messages(db):
-    now = datetime.now(timezone.utc).replace(tzinfo=None)  # strip tz for SQLite comparison
+    now = _utcnow_naive()
     return db.query(Message).filter(
-        Message.expires_at != None,
+        Message.expires_at.is_not(None),
         Message.expires_at < now
     ).all()

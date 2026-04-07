@@ -1,21 +1,57 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
 
 class Settings(BaseSettings):
-    SECRET_KEY:str
-    DATABASE_URL:str
-    ALGORITHM:str="HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES:int=30
-    S3_PROVIDER:str = "minio" #aws|minio|localstack
+    model_config = SettingsConfigDict(
+        env_file=str(ROOT_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    SECRET_KEY: str
+    DATABASE_URL: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    SQL_ECHO: bool = False
+    S3_PROVIDER: str = "minio"  # aws|minio|localstack
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str
     S3_SECRET_KEY: str
     S3_BUCKET_NAME: str
-    S3_REGION:str = "us-east-1"
-    REDIS_URL:str
+    S3_REGION: str = "us-east-1"
+    REDIS_URL: str
     RATE_LIMIT_STORAGE: str = "memory://"
-    
-    class Config():
-        env_file = '.env'
-        env_file_encoding = 'utf-8'
+    MAX_SEALED_BLOB_BYTES: int = 262144
+    MAX_MESSAGE_TTL_SECONDS: int = 604800
+
+    @field_validator(
+        "SECRET_KEY",
+        "DATABASE_URL",
+        "S3_ACCESS_KEY",
+        "S3_SECRET_KEY",
+        "S3_BUCKET_NAME",
+        "REDIS_URL",
+        "RATE_LIMIT_STORAGE",
+    )
+    @classmethod
+    def _require_non_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Environment value must not be blank.")
+        return value
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def _validate_secret_key(cls, value: str) -> str:
+        if len(value) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long.")
+        return value
+
 
 settings = Settings()

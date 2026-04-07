@@ -1,20 +1,25 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,ConfigDict
 from typing import Optional,List
 
 class KeyBundleUpload(BaseModel):
     identity_key:str
+    signing_public:str
     signed_prekey:str
     signed_prekey_signature:str
     prekey_id:int
     one_time_prekeys:List[str]
+    kyber_prekey_public: Optional[str] = None
+    kyber_prekey_signature: Optional[str] = None
     
 class KeyBundleResponse(BaseModel):
     user_id:int
     identity_key:str
+    signing_public:str
     signed_prekey:str
     signed_prekey_signature:str
     prekey_id:int
     one_time_prekey:Optional[str]
+    kyber_prekey_public: Optional[str] = None
+    kyber_prekey_signature: Optional[str] = None
     
-    class Config():
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

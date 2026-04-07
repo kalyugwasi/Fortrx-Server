@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status,HTTPException
 from app.middleware.rate_limit import limiter
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -44,3 +44,17 @@ def login(
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_active_user)):
     return current_user
+
+@router.get("/users/{user_id}")
+def get_user_by_id(
+    user_id:int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_active_user)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "id": user.id,
+        "username": user.username
+    }
