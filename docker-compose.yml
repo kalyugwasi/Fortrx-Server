@@ -9,6 +9,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
     expose:
       - "5432"
     command: >
@@ -33,6 +35,8 @@ services:
       --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
     expose:
       - "6379"
     healthcheck:
