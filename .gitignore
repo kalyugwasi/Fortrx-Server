@@ -1,4 +1,6 @@
 .env
+.env.runtime
+.env.runtime.previous
 /venv
 fortress.db
 __pycache__/
@@ -6,3 +8,5 @@ __pycache__/
 *$py.class
 .pytest_cache
 crox.py
+ops/deploy.env
+backups/

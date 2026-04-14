@@ -1,12 +1,12 @@
 import asyncio
-import json
+import contextlib
 import uuid
 
 from fastapi import APIRouter,WebSocket,WebSocketDisconnect,Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.crypto import decode_access_token
-from app.services import manager,subscribe_to_user,unsubscribe_from_user
+from app.services import manager,read_user_messages,subscribe_to_user,unsubscribe_from_user
 from app.services import presence_service
 
 router = APIRouter(tags=["websocket"])
@@ -44,38 +44,54 @@ async def websocket_endpoint(
         await websocket.close(code=1008)
         return
     session_id = f"ws:{uuid.uuid4().hex}"
+    subscription = None
     await manager.connect(user_id,websocket)
-    await presence_service.heartbeat_and_broadcast(db, user_id, session_id)
-    pubsub,r = await subscribe_to_user(user_id)
-    
-    async def client_listener():
+    try:
+        await presence_service.heartbeat_and_broadcast(db, user_id, session_id)
+        subscription = await subscribe_to_user(user_id)
+        await websocket.send_json(
+            {
+                "type": "sync_hint",
+                "reason": "websocket_connected",
+                "refresh_presence": True,
+            }
+        )
+
+        async def client_listener():
+            try:
+                while True:
+                    text = await websocket.receive_text()
+                    if text == "ping":
+                        await websocket.send_text("pong")
+                        await presence_service.heartbeat_and_broadcast(db, user_id, session_id)
+            except WebSocketDisconnect:
+                pass
+
+        async def redis_listener():
+            try:
+                while True:
+                    for payload in await read_user_messages(subscription):
+                        await websocket.send_json(payload)
+            except Exception:
+                pass
+
+        redis_task = asyncio.create_task(client_listener())
+        ws_task = asyncio.create_task(redis_listener())
+
         try:
-            while True:
-                text = await websocket.receive_text()
-                if text == "ping":
-                    await websocket.send_text("pong")
-                    await presence_service.heartbeat_and_broadcast(db, user_id, session_id)
-        except WebSocketDisconnect:
-            pass
-    
-    async def redis_listener():
-        try:
-            async for message in pubsub.listen():
-                if message and message.get("type") == "message":
-                    data = json.loads(message.get("data", "{}"))
-                    await websocket.send_json(data)
-        except Exception:
-            pass
-    
-    redis_task = asyncio.create_task(client_listener())
-    ws_task = asyncio.create_task(redis_listener())
-    
-    done,pending = await asyncio.wait(
-        [redis_task,ws_task],
-        return_when=asyncio.FIRST_COMPLETED
-    )
-    for task in pending:
-        task.cancel()
-    manager.disconnect(user_id, websocket)
-    await unsubscribe_from_user(pubsub,r)
-    await presence_service.disconnect_and_broadcast(db, user_id, session_id)
+            await asyncio.wait(
+                [redis_task,ws_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+        finally:
+            for task in (redis_task, ws_task):
+                task.cancel()
+            for task in (redis_task, ws_task):
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+    finally:
+        manager.disconnect(user_id, websocket)
+        if subscription is not None:
+            await unsubscribe_from_user(subscription)
+        with contextlib.suppress(Exception):
+            await presence_service.disconnect_and_broadcast(db, user_id, session_id)

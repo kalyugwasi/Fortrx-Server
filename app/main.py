@@ -4,6 +4,7 @@ from slowapi import _rate_limit_exceeded_handler
 from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from app.database import Base,engine,SessionLocal,ensure_key_bundle_schema
+from app.config import settings
 import app.models,app.schemas,app.services
 from app.routers import auth,keys,messages,ws,safety,presence
 from app.services import ensure_bucket_exists,purge_expired_messages
@@ -46,7 +47,11 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 @app.get('/')
 async def health():
-    return {"status":"Fortrx is running"}
+    return {
+        "status":"Fortrx is running",
+        "deploy_env": settings.DEPLOY_ENV,
+        "public_base_url": settings.PUBLIC_BASE_URL,
+    }
 
 
 # docker run -d --name localstack -p 4566:4566 localstack/localstac

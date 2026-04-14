@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     SQL_ECHO: bool = False
+    PUBLIC_BASE_URL: str = "http://localhost:8000"
+    DEPLOY_ENV: str = "local"
     S3_PROVIDER: str = "minio"  # aws|minio|localstack
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY: str
@@ -52,6 +54,12 @@ class Settings(BaseSettings):
         if len(value) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters long.")
         return value
+
+    @field_validator("PUBLIC_BASE_URL")
+    @classmethod
+    def _normalize_public_base_url(cls, value: str) -> str:
+        value = value.strip()
+        return value.rstrip("/")
 
 
 settings = Settings()

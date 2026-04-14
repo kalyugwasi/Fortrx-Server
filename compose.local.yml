@@ -1,0 +1,27 @@
+services:
+  db:
+    ports:
+      - "127.0.0.1:5433:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  minio:
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  fortrx:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./alembic:/app/alembic:ro
+    command: >
+      sh -c "alembic -c /app/alembic.ini upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
