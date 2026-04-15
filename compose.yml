@@ -74,7 +74,7 @@ services:
     image: ${FORTRX_IMAGE:-fortrx-server:latest}
     restart: unless-stopped
     env_file:
-      - ${FORTRX_ENV_FILE:-.env}
+      - ${FORTRX_ENV_FILE:-.env.runtime}
     depends_on:
       db:
         condition: service_healthy
@@ -93,7 +93,13 @@ services:
       - -lc
       - ${FORTRX_COMMAND:-./start.sh}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5).read()"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5).read()",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
