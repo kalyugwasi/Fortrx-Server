@@ -66,6 +66,15 @@ choose_mode() {
   MODE="${MODE,,}"
 }
 
+infisical_export_cmd() {
+  local cmd
+  cmd=(infisical export --env=prod --format=dotenv)
+  if [[ -n "${INFISICAL_PROJECT_ID:-}" ]]; then
+    cmd+=(--projectId="$INFISICAL_PROJECT_ID")
+  fi
+  "${cmd[@]}"
+}
+
 install_docker_stack() {
   linux_only
 
@@ -154,6 +163,10 @@ EOF
 }
 
 link_infisical_project() {
+  if [[ -n "${INFISICAL_PROJECT_ID:-}" ]]; then
+    return
+  fi
+
   if [[ -f "$REPO_ROOT/infisical.json" || -f "$REPO_ROOT/.infisical.json" ]]; then
     return
   fi
@@ -165,25 +178,34 @@ link_infisical_project() {
   )
 }
 
+setup_infisical_auth() {
+  if [[ -n "${INFISICAL_TOKEN:-}" ]]; then
+    say "Using existing INFISICAL_TOKEN for prod"
+    return
+  fi
+
+  if [[ -n "${INFISICAL_UNIVERSAL_AUTH_CLIENT_ID:-}" && -n "${INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET:-}" ]]; then
+    say "Using Infisical Universal Auth to obtain a short-lived token"
+    export INFISICAL_TOKEN="$(
+      infisical login --method=universal-auth --silent --plain
+    )"
+    return
+  fi
+
+  say "Infisical login is required for prod"
+  infisical login
+}
+
 export_prod_env() {
   local tmp_env
   tmp_env="$(mktemp)"
 
-  if ! (
+  setup_infisical_auth
+  link_infisical_project
+  (
     cd "$REPO_ROOT"
-    infisical export --env=prod --format=dotenv > "$tmp_env"
-  ); then
-    say "Infisical login is required for prod"
-    (
-      cd "$REPO_ROOT"
-      infisical login
-    )
-    link_infisical_project
-    (
-      cd "$REPO_ROOT"
-      infisical export --env=prod --format=dotenv > "$tmp_env"
-    )
-  fi
+    infisical_export_cmd > "$tmp_env"
+  )
 
   {
     cat "$tmp_env"

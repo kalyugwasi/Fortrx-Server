@@ -47,11 +47,12 @@ Requirements:
 
 - your repo is linked to the right Infisical project
 - the `prod` environment in Infisical contains the runtime secrets
+- optional but recommended: provide `INFISICAL_TOKEN` ahead of time for non-interactive auth
 
 The script will:
 
 - install Docker, Docker Compose v2, cron, and `restic`
-- ask you to log into Infisical if needed
+- use `INFISICAL_TOKEN` if present, otherwise fall back to Infisical login
 - export the `prod` secrets into `.env.runtime`
 - start the production stack with the `prod` services enabled
 - install nightly backups
