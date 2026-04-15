@@ -9,15 +9,16 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SNAPSHOT_ID="$1"
+ENV_FILE="${FORTRX_ENV_FILE:-$APP_DIR/.env.runtime}"
 
-if [[ ! -f "$APP_DIR/.env.runtime" ]]; then
-  echo "Missing $APP_DIR/.env.runtime" >&2
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Missing $ENV_FILE" >&2
   exit 1
 fi
 
 set -a
 # shellcheck disable=SC1091
-source "$APP_DIR/.env.runtime"
+source "$ENV_FILE"
 set +a
 
 RESTIC_REPOSITORY="${RESTIC_REPOSITORY:?Set RESTIC_REPOSITORY in .env.runtime}"
@@ -26,7 +27,9 @@ MINIO_VOLUME="${COMPOSE_PROJECT_NAME:-fortrx}_minio_data"
 RESTORE_DIR="$(mktemp -d)"
 trap 'rm -rf "$RESTORE_DIR"' EXIT
 
-compose=(docker compose --env-file "$APP_DIR/.env.runtime" -f "$APP_DIR/compose.base.yml" -f "$APP_DIR/compose.prod.yml")
+cd "$APP_DIR"
+
+compose=(docker compose --profile prod --env-file "$ENV_FILE")
 
 restic restore "$SNAPSHOT_ID" --target "$RESTORE_DIR"
 

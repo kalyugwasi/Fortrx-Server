@@ -1,6 +1,6 @@
 # Fortrx Server
 
-Docker-first deployment for the Fortrx backend, designed to run the same way on a local machine, a single cloud VM, or any Linux host with Docker.
+Run the Fortrx backend from a fresh clone with one guided command.
 
 ## Stack
 
@@ -11,68 +11,69 @@ Docker-first deployment for the Fortrx backend, designed to run the same way on 
 - `caddy`: HTTPS + WebSocket reverse proxy in production
 - `duckdns`: dynamic DNS updater in production
 
-## Local Development
+## Quick Start
 
-Copy `.env.example` to `.env`, then run:
-
-```bash
-docker compose -f compose.base.yml -f compose.local.yml up --build
-```
-
-Compatibility shortcut:
+After cloning the repo on a Debian/Ubuntu machine, run:
 
 ```bash
-docker compose up --build
+bash ops/launch.sh
 ```
 
-Local endpoints:
+The script:
+
+- installs Docker and Docker Compose v2 if needed
+- asks whether you want `local` or `prod`
+- creates a local `.env` automatically for `local`
+- prompts for Infisical login and exports `.env.runtime` for `prod`
+- launches the stack with one `compose.yml`
+
+## Modes
+
+### Local
+
+Choose `local` in `ops/launch.sh`.
+
+Endpoints:
 
 - API: `http://localhost:8000`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
 
-## Production Workflow
+### Production
 
-1. Create `ops/deploy.env` from `ops/deploy.env.example`.
-2. Store runtime secrets in Infisical.
-3. Bootstrap a fresh host:
+Choose `prod` in `ops/launch.sh`.
 
-```bash
-./ops/bootstrap-host.sh user@host
-```
+Requirements:
 
-4. Deploy a tagged image:
+- your repo is linked to the right Infisical project
+- the `prod` environment in Infisical contains the runtime secrets
 
-```bash
-./ops/deploy.sh prod v1
-```
+The script will:
 
-The deploy script:
-
-- builds and pushes a public GHCR image
-- exports secrets from Infisical into a transient `.env.runtime`
-- syncs only production compose/runtime assets to the server
-- starts `compose.base.yml + compose.prod.yml`
-- installs nightly backups
+- install Docker, Docker Compose v2, cron, and `restic`
+- ask you to log into Infisical if needed
+- export the `prod` secrets into `.env.runtime`
+- start the production stack with the `prod` services enabled
+- install nightly backups
 
 ## Backup and Restore
 
 Manual backup:
 
 ```bash
-./ops/backup.sh
+bash ops/backup.sh
 ```
 
 Restore a snapshot:
 
 ```bash
-./ops/restore.sh <snapshot-id>
+bash ops/restore.sh <snapshot-id>
 ```
 
 Backups include:
 
 - a logical Postgres dump
 - a MinIO volume archive
-- metadata about the deploy image and environment
+- metadata about the current environment
 
 The remote backup script uses `restic`, so any backend supported by `restic` can be used by placing the needed env vars in Infisical alongside `RESTIC_REPOSITORY` and `RESTIC_PASSWORD`.

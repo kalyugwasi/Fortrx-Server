@@ -4,15 +4,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BACKUP_TAG="${1:-manual}"
+ENV_FILE="${FORTRX_ENV_FILE:-$APP_DIR/.env.runtime}"
 
-if [[ ! -f "$APP_DIR/.env.runtime" ]]; then
-  echo "Missing $APP_DIR/.env.runtime" >&2
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Missing $ENV_FILE" >&2
   exit 1
 fi
 
 set -a
 # shellcheck disable=SC1091
-source "$APP_DIR/.env.runtime"
+source "$ENV_FILE"
 set +a
 
 RESTIC_REPOSITORY="${RESTIC_REPOSITORY:?Set RESTIC_REPOSITORY in .env.runtime}"
@@ -21,7 +22,9 @@ MINIO_VOLUME="${COMPOSE_PROJECT_NAME:-fortrx}_minio_data"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-compose=(docker compose --env-file "$APP_DIR/.env.runtime" -f "$APP_DIR/compose.base.yml" -f "$APP_DIR/compose.prod.yml")
+cd "$APP_DIR"
+
+compose=(docker compose --profile prod --env-file "$ENV_FILE")
 
 "${compose[@]}" exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$TMP_DIR/postgres.sql"
 docker run --rm \
@@ -33,7 +36,7 @@ docker run --rm \
 cat > "$TMP_DIR/metadata.txt" <<EOF
 timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 deploy_env=${DEPLOY_ENV:-prod}
-image_ref=${IMAGE_REF:-unknown}
+fortrx_image=${FORTRX_IMAGE:-fortrx-server:latest}
 backup_tag=$BACKUP_TAG
 EOF
 
