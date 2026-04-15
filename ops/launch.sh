@@ -201,11 +201,17 @@ export_prod_env() {
   tmp_env="$(mktemp)"
 
   setup_infisical_auth
-  link_infisical_project
-  (
+
+  if ! (
     cd "$REPO_ROOT"
     infisical_export_cmd > "$tmp_env"
-  )
+  ); then
+    link_infisical_project
+    (
+      cd "$REPO_ROOT"
+      infisical_export_cmd > "$tmp_env"
+    )
+  fi
 
   {
     cat "$tmp_env"
