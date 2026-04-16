@@ -1,3 +1,5 @@
+# The PUBLIC_BASE_URL is fetched from Infisical and stored in .env.runtime
+# Caddy will use this as the site address (e.g., https://yourdomain.duckdns.org)
 {$PUBLIC_BASE_URL} {
     encode zstd gzip
     tls {$CADDY_EMAIL}
@@ -9,5 +11,7 @@
         Referrer-Policy "strict-origin-when-cross-origin"
     }
 
+    # Proxy to the fortrx service on port 8000
+    # Ensure the fortrx container is listening on 0.0.0.0:8000
     reverse_proxy fortrx:8000
 }

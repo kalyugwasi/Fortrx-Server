@@ -197,12 +197,15 @@ setup_infisical_auth() {
   if [[ -n "${INFISICAL_UNIVERSAL_AUTH_CLIENT_ID:-}" && -n "${INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET:-}" ]]; then
     say "Using Infisical Universal Auth to obtain a short-lived token"
     export INFISICAL_TOKEN="$(
-      infisical login --method=universal-auth --silent --plain
+      infisical login --method=universal-auth \
+        --client-id="$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" \
+        --client-secret="$INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET" \
+        --silent --plain
     )"
     return
   fi
 
-  say "Infisical login is required for prod"
+  say "Infisical login is required for prod. Please log in interactively or set INFISICAL_UNIVERSAL_AUTH_CLIENT_ID and INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET."
   infisical login
 }
 

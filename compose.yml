@@ -4,6 +4,8 @@ services:
   db:
     image: postgres:15-alpine
     restart: unless-stopped
+    env_file:
+      - ${FORTRX_ENV_FILE:-.env.runtime}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
@@ -19,7 +21,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:${FORTRX_DB_PORT:-5433}:5432"
+      - "${FORTRX_DB_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -29,6 +31,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    env_file:
+      - ${FORTRX_ENV_FILE:-.env.runtime}
     command:
       - redis-server
       - --appendonly
@@ -40,7 +44,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "127.0.0.1:${FORTRX_REDIS_PORT:-6379}:6379"
+      - "${FORTRX_REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -50,6 +54,8 @@ services:
   minio:
     image: minio/minio:latest
     restart: unless-stopped
+    env_file:
+      - ${FORTRX_ENV_FILE:-.env.runtime}
     command:
       - server
       - /data
@@ -61,8 +67,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "127.0.0.1:${FORTRX_MINIO_PORT:-9000}:9000"
-      - "127.0.0.1:${FORTRX_MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${FORTRX_MINIO_PORT:-9000}:9000"
+      - "${FORTRX_MINIO_CONSOLE_PORT:-9001}:9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -83,7 +89,7 @@ services:
       minio:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${FORTRX_APP_PORT:-8000}:8000"
+      - "0.0.0.0:${FORTRX_APP_PORT:-8000}:8000"
     volumes:
       - ./app:/app/app
       - ./alembic.ini:/app/alembic.ini:ro
