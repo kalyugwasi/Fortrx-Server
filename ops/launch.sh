@@ -236,6 +236,7 @@ export_prod_env() {
     cat "$tmp_env"
     echo "DEPLOY_ENV=prod"
     echo "FORTRX_ENV_FILE=.env.runtime"
+    echo "FORTRX_COMMAND=./start.sh"
   } > "$REPO_ROOT/.env.runtime"
 
   rm -f "$tmp_env"
