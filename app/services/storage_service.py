@@ -1,5 +1,5 @@
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from app.config import settings
 import uuid
 
@@ -38,6 +38,10 @@ def ensure_bucket_exists():
             pass
         else:
             raise
+    except EndpointConnectionError:
+        if settings.DEPLOY_ENV in {"local", "test"}:
+            return
+        raise
         
 def generate_blob_key(recipient_id:int):
     return f"messages/{recipient_id}/{uuid.uuid4()}"

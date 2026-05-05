@@ -101,6 +101,17 @@ class TestAuth:
         )
         assert resp.status_code == 401
 
+    def test_get_user_by_username(self, client, alice_auth):
+        resp = client.get("/auth/users/by-username/alice", headers=alice_auth["headers"])
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["username"] == "alice"
+        assert data["id"] > 0
+
+    def test_get_unknown_user_by_username(self, client, alice_auth):
+        resp = client.get("/auth/users/by-username/does-not-exist", headers=alice_auth["headers"])
+        assert resp.status_code == 404
+
 
 # ===========================================================================
 # BLOCK 2 — Key Bundles

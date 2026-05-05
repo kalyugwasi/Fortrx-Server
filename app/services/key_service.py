@@ -7,20 +7,23 @@ from app.models import KeyBundle, User
 from app.repositories import get_bundle_by_user_id,create_bundle,update_bundle
 from app.schemas import KeyBundleUpload,KeyBundleResponse
 
-def _deserialize_bundle_otpks(bundle):
-    """Ensure bundle.one_time_prekeys is always a Python list, never a raw JSON string."""
-    if isinstance(bundle.one_time_prekeys, str):
-        keys = json.loads(bundle.one_time_prekeys)
+def _deserialize_bundle_otpks(bundle) -> list:
+    """Read one_time_prekeys without mutating the ORM field to a Python object."""
+    raw = bundle.one_time_prekeys
+    if isinstance(raw, str):
+        parsed = json.loads(raw or "[]")
     else:
-        keys = bundle.one_time_prekeys or []
-    # normalize back onto the instance so callers see a list
-    bundle.one_time_prekeys = keys
-    return bundle
+        parsed = raw or []
+    if isinstance(parsed, dict):
+        parsed = list(parsed.values())
+    if not isinstance(parsed, list):
+        parsed = []
+    return parsed
 
-def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload):
+def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload, device_id: str | None = None):
     # SQLite Text column cannot store a Python list — serialize to JSON string
     one_time_prekeys_json = json.dumps(payload.one_time_prekeys)
-    bundle = get_bundle_by_user_id(db,user_id)
+    bundle = get_bundle_by_user_id(db,user_id, device_id=device_id)
     if bundle:
         bundle = update_bundle(
             db,bundle,
@@ -30,6 +33,7 @@ def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload):
             signed_prekey_signature=payload.signed_prekey_signature,
             prekey_id=payload.prekey_id,
             one_time_prekeys=one_time_prekeys_json,
+            device_id=device_id,
             kyber_prekey_public=payload.kyber_prekey_public,
             kyber_prekey_signature=payload.kyber_prekey_signature)
     else:
@@ -42,6 +46,7 @@ def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload):
             signed_prekey_signature=payload.signed_prekey_signature,
             prekey_id=payload.prekey_id,
             one_time_prekeys=one_time_prekeys_json,
+            device_id=device_id,
             kyber_prekey_public=payload.kyber_prekey_public,
             kyber_prekey_signature=payload.kyber_prekey_signature
             )
@@ -55,25 +60,30 @@ def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload):
 def fetch_key_bundle(db:Session,user_id:int):
     if db.bind.dialect.name == "sqlite":
         db.execute(text("BEGIN IMMEDIATE"))
-        bundle = db.query(KeyBundle).filter(KeyBundle.user_id == user_id).first()
+        bundle = (
+            db.query(KeyBundle)
+            .filter(KeyBundle.user_id == user_id)
+            .order_by(KeyBundle.updated_at.desc(), KeyBundle.id.desc())
+            .first()
+        )
     else:
         bundle = (
             db.query(KeyBundle)
             .filter(KeyBundle.user_id == user_id)
             .with_for_update()
+            .order_by(KeyBundle.updated_at.desc(), KeyBundle.id.desc())
             .first()
         )
     if not bundle:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Key Bundle not found")
-    # Deserialize stored JSON string back to list before repo operates on it
-    _deserialize_bundle_otpks(bundle)
-    if not bundle.one_time_prekeys:
+    otpks = _deserialize_bundle_otpks(bundle)
+    if not otpks:
         otp = None
     else:
-        otp = bundle.one_time_prekeys.pop(0)
+        otp = otpks.pop(0)
         if isinstance(otp,bytes):
             otp = otp.decode()
-        bundle.one_time_prekeys = json.dumps(bundle.one_time_prekeys)
+        bundle.one_time_prekeys = json.dumps(otpks)
         db.add(bundle)
     db.commit()
     return KeyBundleResponse(

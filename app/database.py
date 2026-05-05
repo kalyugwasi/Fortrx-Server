@@ -36,6 +36,35 @@ def ensure_key_bundle_schema():
         else:
             connection.execute(text("ALTER TABLE key_bundles ADD COLUMN IF NOT EXISTS signing_public TEXT"))
 
+
+def ensure_server_changes_schema():
+    inspector = inspect(engine)
+    dialect = engine.dialect.name
+
+    if inspector.has_table("users"):
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        user_additions = []
+        if "backup_code_hash" not in user_columns:
+            user_additions.append("backup_code_hash TEXT")
+        if "backup_code_salt" not in user_columns:
+            user_additions.append("backup_code_salt BYTEA" if dialect != "sqlite" else "backup_code_salt BLOB")
+        if "backup_code_server_salt" not in user_columns:
+            user_additions.append("backup_code_server_salt BYTEA" if dialect != "sqlite" else "backup_code_server_salt BLOB")
+        if "backup_code_failures" not in user_columns:
+            user_additions.append("backup_code_failures INTEGER NOT NULL DEFAULT 0")
+        if "backup_code_locked_until" not in user_columns:
+            user_additions.append("backup_code_locked_until BIGINT")
+        if user_additions:
+            with engine.begin() as connection:
+                for addition in user_additions:
+                    connection.execute(text(f"ALTER TABLE users ADD COLUMN {addition}"))
+
+    if inspector.has_table("key_bundles"):
+        bundle_columns = {column["name"] for column in inspector.get_columns("key_bundles")}
+        if "device_id" not in bundle_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE key_bundles ADD COLUMN device_id TEXT"))
+
 def get_db():
     db = SessionLocal()
     try:

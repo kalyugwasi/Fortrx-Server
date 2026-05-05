@@ -5,10 +5,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
-from app.database import Base,engine,SessionLocal,ensure_key_bundle_schema
+from app.database import Base,engine,SessionLocal,ensure_key_bundle_schema, ensure_server_changes_schema
 from app.config import settings
 import app.models,app.schemas,app.services
-from app.routers import auth,keys,messages,ws,safety,presence
+from app.routers import account, auth, devices, keys, messages, ws, safety, presence
 from app.services import ensure_bucket_exists,purge_expired_messages
 from app.middleware import limiter,SecurityHeadersMiddleware
 
@@ -40,6 +40,7 @@ async def lifespan(app: FastAPI):
     #Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     ensure_key_bundle_schema()
+    ensure_server_changes_schema()
     ensure_bucket_exists()
     cleanup_task = asyncio.create_task(expired_message_cleanup())
     yield
@@ -48,6 +49,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title='Fortrx', lifespan=lifespan)
 app.include_router(keys.router)
 app.include_router(auth.router)
+app.include_router(devices.router)
+app.include_router(account.router)
 app.include_router(messages.router)
 app.include_router(ws.router)
 app.include_router(safety.router)

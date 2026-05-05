@@ -1,1 +1,1 @@
-from app.routers.auth import register,login
+from app.routers.auth import login, register

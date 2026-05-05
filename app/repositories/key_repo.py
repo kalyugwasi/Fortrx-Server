@@ -1,8 +1,13 @@
 from sqlalchemy.orm import Session
 import json
 from app.models import KeyBundle
-def get_bundle_by_user_id(db:Session,user_id:int):
-    return db.query(KeyBundle).filter(KeyBundle.user_id==user_id).first()
+
+
+def get_bundle_by_user_id(db:Session,user_id:int, device_id: str | None = None):
+    query = db.query(KeyBundle).filter(KeyBundle.user_id == user_id)
+    if device_id is not None:
+        query = query.filter(KeyBundle.device_id == device_id)
+    return query.order_by(KeyBundle.updated_at.desc(), KeyBundle.id.desc()).first()
 
 def create_bundle(
     db:Session,
@@ -13,6 +18,7 @@ def create_bundle(
     signed_prekey_signature:str,
     prekey_id:int,
     one_time_prekeys:list[str],
+    device_id: str | None = None,
     kyber_prekey_public: str | None = None,
     kyber_prekey_signature: str | None = None
     ):
@@ -24,6 +30,7 @@ def create_bundle(
         signed_prekey_signature=signed_prekey_signature,
         prekey_id=prekey_id,
         one_time_prekeys=one_time_prekeys,
+        device_id=device_id,
         kyber_prekey_public=kyber_prekey_public,
         kyber_prekey_signature=kyber_prekey_signature
     )

@@ -1,6 +1,7 @@
 import json
 
 import redis.asyncio as aioredis
+from redis.exceptions import RedisError
 
 from app.config import settings
 
@@ -26,6 +27,10 @@ async def publish_message(user_id: int, payload: dict):
             maxlen=USER_EVENT_STREAM_MAXLEN,
             approximate=True,
         )
+    except (OSError, RedisError):
+        if settings.DEPLOY_ENV in {"local", "test"}:
+            return
+        raise
     finally:
         await r.aclose()
 

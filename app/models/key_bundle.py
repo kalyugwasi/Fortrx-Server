@@ -12,6 +12,7 @@ class KeyBundle(Base):
     signed_prekey_signature = Column(Text)
     prekey_id = Column(Integer)
     one_time_prekeys = Column(Text)
+    device_id = Column(Text, nullable=True, index=True)
     updated_at = Column(DateTime,default=datetime.utcnow)
     kyber_prekey_public = Column(Text,nullable=True)
     kyber_prekey_signature = Column(Text,nullable=True)

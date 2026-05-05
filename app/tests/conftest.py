@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from contextlib import asynccontextmanager
 
 from app.main import app
 from app.database import Base, get_db
@@ -12,12 +13,16 @@ from app.crypto.keys import (
     generate_one_time_prekeys,
     encode_public_key,
 )
+from limits.storage import storage_from_string
 import pytest
 @pytest.fixture(autouse=True)
 def control_rate_limit(request):
     from app.main import app
 
     if "rate_limit" in request.node.name:
+        storage = storage_from_string("memory://")
+        app.state.limiter._storage = storage
+        app.state.limiter.limiter.storage = storage
         app.state.limiter.enabled = True   # enable ONLY for this test
     else:
         app.state.limiter.enabled = False
@@ -59,6 +64,9 @@ def db_session(db_engine):
     TestingSessionLocal = sessionmaker(
         autocommit=False, autoflush=False, bind=db_engine
     )
+    import app.database as app_database
+    app_database.engine = db_engine
+    app_database.SessionLocal = TestingSessionLocal
     session = TestingSessionLocal()
     yield session
     session.close()
@@ -66,6 +74,10 @@ def db_session(db_engine):
 
 @pytest.fixture(scope="session")
 def client(db_session):
+    @asynccontextmanager
+    async def test_lifespan(_app):
+        yield
+
     def override_get_db():
         try:
             yield db_session
@@ -73,6 +85,7 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+    app.router.lifespan_context = test_lifespan
     ensure_bucket_exists()
     with TestClient(app) as c:
         yield c

@@ -1,4 +1,4 @@
-from sqlalchemy import Integer,String,Column,DateTime,Boolean
+from sqlalchemy import Integer, String, Column, DateTime, Boolean, BigInteger, LargeBinary
 from datetime import datetime
 from app.database import Base
 
@@ -11,3 +11,8 @@ class User(Base):
     identity_public_key = Column(String,nullable=True)
     created_at = Column(DateTime,default=datetime.utcnow)
     is_active = Column(Boolean,default=True)
+    backup_code_hash = Column(String, nullable=True)
+    backup_code_salt = Column(LargeBinary, nullable=True)
+    backup_code_server_salt = Column(LargeBinary, nullable=True)
+    backup_code_failures = Column(Integer, nullable=False, default=0)
+    backup_code_locked_until = Column(BigInteger, nullable=True)
