@@ -6,7 +6,7 @@ from datetime import datetime
 import requests
 
 
-DEFAULT_URL = "https://fortrx-server.duckdns.org/"
+DEFAULT_URL = "https://fortrx-server.duckdns.org/healthz"
 DEFAULT_INTERVAL = 2.0
 DEFAULT_TIMEOUT = 5.0
 EXPECTED_STATUS = "Fortrx is running"

@@ -3,6 +3,14 @@
 {$PUBLIC_BASE_URL} {
     encode zstd gzip
     tls {$CADDY_EMAIL}
+    log {
+        output file /var/log/fortrx/caddy-access.log {
+            roll_size 10MiB
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
 
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
@@ -18,6 +26,21 @@
     }
     respond @badPaths 403
     respond @badQuery 403
+    @healthcheck {
+        path /healthz
+    }
+    handle @healthcheck {
+        reverse_proxy fortrx:8000 {
+            header_up X-Forwarded-For {http.request.remote.host}
+            header_up X-Real-IP {http.request.remote.host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+    @publicRoot {
+        path /
+    }
+    respond @publicRoot 404
     # Proxy to the fortrx service on port 8000 and forward the original client address.
     reverse_proxy fortrx:8000 {
         header_up X-Forwarded-For {http.request.remote.host}

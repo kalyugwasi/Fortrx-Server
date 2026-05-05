@@ -100,7 +100,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5).read()",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).read()",
         ]
       interval: 10s
       timeout: 5s
@@ -121,6 +121,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./ops/host/logs:/var/log/fortrx
       - caddy_data:/data
       - caddy_config:/config
     networks:

@@ -267,6 +267,8 @@ start_prod() {
   install_restic
   install_infisical
   export_prod_env
+  mkdir -p "$REPO_ROOT/ops/host/logs"
+  chmod 750 "$REPO_ROOT/ops/host/logs"
 
   say "Starting the production stack"
   (
@@ -274,6 +276,7 @@ start_prod() {
     compose_cmd --profile prod --env-file .env.runtime up -d --build
   )
 
+  bash "$REPO_ROOT/ops/host/install-fail2ban.sh" "$REPO_ROOT"
   bash "$REPO_ROOT/ops/host/install-cron.sh" "$REPO_ROOT"
 
   cat <<'EOF'

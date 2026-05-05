@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from fastapi import FastAPI
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -10,6 +11,15 @@ import app.models,app.schemas,app.services
 from app.routers import auth,keys,messages,ws,safety,presence
 from app.services import ensure_bucket_exists,purge_expired_messages
 from app.middleware import limiter,SecurityHeadersMiddleware
+
+
+class HealthcheckAccessFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = getattr(record, "args", ())
+        if not isinstance(args, tuple) or len(args) < 3:
+            return True
+        path = args[2]
+        return path != "/healthz"
 
 async def expired_message_cleanup():
     print("Background cleanup worker started.")
@@ -46,13 +56,21 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 app.add_middleware(SecurityHeadersMiddleware)
+logging.getLogger("uvicorn.access").addFilter(HealthcheckAccessFilter())
 
 @app.get('/')
 async def health():
     return {
         "status":"Fortrx is running",
-        "deploy_env": settings.DEPLOY_ENV,
         "public_base_url": settings.PUBLIC_BASE_URL,
+    }
+
+
+@app.get('/healthz')
+async def healthz():
+    return {
+        "status":"Fortrx is running",
+        "deploy_env": settings.DEPLOY_ENV,
     }
 
 

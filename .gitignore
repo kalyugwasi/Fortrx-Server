@@ -9,5 +9,6 @@ __pycache__/
 .pytest_cache
 crox.py
 ops/deploy.env
+ops/host/logs/*.log
 backups/
 test_fortress.db

@@ -55,7 +55,12 @@ Select `prod` when running `ops/launch.sh`.
 - Utilize `INFISICAL_TOKEN` if available, otherwise fallback to Infisical login.
 - Export production secrets into `.env.runtime`.
 - Start the production stack with all `prod` services enabled.
+- Install `fail2ban` with SSH and Caddy probe jails.
 - Configure nightly backups.
+
+```bash
+bash ops/host/harden-ssh.sh --yes-i-have-a-working-ssh-key ubuntu 22
+```
 
 ## Backup and Restore
 

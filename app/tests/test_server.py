@@ -552,6 +552,11 @@ class TestSafetyNumbers:
 
 class TestSecurity:
 
+    def test_healthz_returns_ok(self, client):
+        resp = client.get("/healthz")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "Fortrx is running"
+
     def test_security_headers_present(self, client):
         resp = client.get("/")
         assert resp.headers.get("X-Content-Type-Options") == "nosniff"
