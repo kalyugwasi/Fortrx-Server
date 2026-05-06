@@ -26,15 +26,29 @@ def ensure_key_bundle_schema():
         return
 
     columns = {column["name"] for column in inspector.get_columns("key_bundles")}
-    if "signing_public" in columns:
-        return
+    
+    # We need to ensure all required columns exist
+    required_columns = [
+        ("user_id", "INTEGER"),
+        ("identity_key", "TEXT"),
+        ("signing_public", "TEXT"),
+        ("signed_prekey", "TEXT"),
+        ("signed_prekey_signature", "TEXT"),
+        ("prekey_id", "INTEGER"),
+        ("one_time_prekeys", "TEXT"),
+        ("kyber_prekey_public", "TEXT"),
+        ("kyber_prekey_signature", "TEXT"),
+        ("updated_at", "DateTime")
+    ]
 
     dialect = engine.dialect.name
     with engine.begin() as connection:
-        if dialect == "sqlite":
-            connection.execute(text("ALTER TABLE key_bundles ADD COLUMN signing_public TEXT"))
-        else:
-            connection.execute(text("ALTER TABLE key_bundles ADD COLUMN IF NOT EXISTS signing_public TEXT"))
+        for name, type_name in required_columns:
+            if name not in columns:
+                if dialect == "sqlite":
+                    connection.execute(text(f"ALTER TABLE key_bundles ADD COLUMN {name} {type_name}"))
+                else:
+                    connection.execute(text(f"ALTER TABLE key_bundles ADD COLUMN IF NOT EXISTS {name} {type_name}"))
 
 
 def ensure_server_changes_schema():

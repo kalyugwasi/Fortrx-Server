@@ -15,7 +15,7 @@ from app.crypto import (
 )
 from app.models import ActionToken, Device, RefreshToken, User
 from app.repositories.user_repo import create_user, get_user_by_email, get_user_by_username
-
+from app.services.pubsub import get_redis
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
@@ -248,3 +248,16 @@ def touch_device_last_seen(db: Session, user_id: int, device_id: str | None) -> 
         return
     device.last_seen = now_ms()
     db.commit()
+
+
+async def touch_device_last_seen_redis(user_id: int, device_id: str | None) -> None:
+    if not device_id:
+        return
+    redis = get_redis()
+    try:
+        # Use a key to track last seen in Redis with a 24h TTL
+        # This avoids a DB write on every request.
+        key = f"device:last_seen:{user_id}:{device_id}"
+        await redis.set(key, str(now_ms()), ex=86400)
+    finally:
+        await redis.aclose()

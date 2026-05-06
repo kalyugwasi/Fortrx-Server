@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.crypto import decode_access_token
 from app.database import get_db
 from app.models import User
-from app.services.auth_service import touch_device_last_seen, verify_stored_action_token
+from app.services.auth_service import touch_device_last_seen_redis, verify_stored_action_token
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -21,7 +21,7 @@ def get_current_token_payload(token: str = Depends(oauth2_scheme)) -> dict:
     return payload
 
 
-def get_current_user(
+async def get_current_user(
     payload: dict = Depends(get_current_token_payload),
     db: Session = Depends(get_db),
 ):
@@ -37,7 +37,8 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-    touch_device_last_seen(db, user.id, payload.get("device_id"))
+    # Optimized: Use Redis for last_seen tracking to avoid DB write on every request
+    await touch_device_last_seen_redis(user.id, payload.get("device_id"))
     return user
 
 
