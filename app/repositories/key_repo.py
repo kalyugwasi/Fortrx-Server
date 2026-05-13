@@ -19,6 +19,8 @@ def create_bundle(
     prekey_id:int,
     one_time_prekeys:list[str],
     device_id: str | None = None,
+    identity_version: int = 1,
+    bundle_version: int = 1,
     kyber_prekey_public: str | None = None,
     kyber_prekey_signature: str | None = None
     ):
@@ -31,6 +33,8 @@ def create_bundle(
         prekey_id=prekey_id,
         one_time_prekeys=one_time_prekeys,
         device_id=device_id,
+        identity_version=identity_version,
+        bundle_version=bundle_version,
         kyber_prekey_public=kyber_prekey_public,
         kyber_prekey_signature=kyber_prekey_signature
     )

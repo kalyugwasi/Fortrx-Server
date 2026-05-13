@@ -75,9 +75,17 @@ def ensure_server_changes_schema():
 
     if inspector.has_table("key_bundles"):
         bundle_columns = {column["name"] for column in inspector.get_columns("key_bundles")}
+        bundle_additions = []
         if "device_id" not in bundle_columns:
+            bundle_additions.append("device_id TEXT")
+        if "identity_version" not in bundle_columns:
+            bundle_additions.append("identity_version INTEGER NOT NULL DEFAULT 1")
+        if "bundle_version" not in bundle_columns:
+            bundle_additions.append("bundle_version INTEGER NOT NULL DEFAULT 1")
+        if bundle_additions:
             with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE key_bundles ADD COLUMN device_id TEXT"))
+                for addition in bundle_additions:
+                    connection.execute(text(f"ALTER TABLE key_bundles ADD COLUMN {addition}"))
 
 def get_db():
     db = SessionLocal()

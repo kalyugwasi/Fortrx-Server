@@ -7,3 +7,4 @@ from app.models.refresh_token import RefreshToken
 from app.models.pairing_code import PairingCode
 from app.models.audit_log import AuditLog
 from app.models.action_token import ActionToken
+from app.models.attachment import Attachment

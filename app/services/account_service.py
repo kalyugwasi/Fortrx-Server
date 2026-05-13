@@ -10,10 +10,11 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.crypto import hash_password
-from app.models import ActionToken, Contact, Device, KeyBundle, Message, PairingCode, RefreshToken, User
+from app.models import ActionToken, Attachment, Contact, Device, KeyBundle, Message, PairingCode, RefreshToken, User
 from app.repositories.user_repo import get_user_by_username
 from app.services.audit_service import write_audit_log
 from app.services.auth_service import create_recovery_token, now_ms, verify_stored_action_token
+from app.services.storage_service import delete_blob
 
 
 BACKUP_LOCK_MS = 60 * 60 * 1000
@@ -115,6 +116,13 @@ def reset_password_with_recovery(db: Session, recovery_token: str, password: str
 
 def delete_account(db: Session, user: User) -> None:
     user_id = user.id
+    attachments = db.query(Attachment).filter(Attachment.recipient_id == user_id).all()
+    for attachment in attachments:
+        try:
+            delete_blob(attachment.blob_key)
+        except Exception:
+            pass
+        db.delete(attachment)
     db.query(Message).filter(Message.recipient_id == user_id).delete(synchronize_session=False)
     db.query(KeyBundle).filter(KeyBundle.user_id == user_id).delete(synchronize_session=False)
     db.query(Contact).filter(

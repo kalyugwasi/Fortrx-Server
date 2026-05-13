@@ -25,6 +25,7 @@ def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload, device_id:
     one_time_prekeys_json = json.dumps(payload.one_time_prekeys)
     bundle = get_bundle_by_user_id(db,user_id, device_id=device_id)
     if bundle:
+        identity_changed = bundle.identity_key != payload.identity_key
         bundle = update_bundle(
             db,bundle,
             identity_key=payload.identity_key,
@@ -34,6 +35,8 @@ def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload, device_id:
             prekey_id=payload.prekey_id,
             one_time_prekeys=one_time_prekeys_json,
             device_id=device_id,
+            identity_version=(bundle.identity_version or 1) + (1 if identity_changed else 0),
+            bundle_version=(bundle.bundle_version or 1) + 1,
             kyber_prekey_public=payload.kyber_prekey_public,
             kyber_prekey_signature=payload.kyber_prekey_signature)
     else:
@@ -47,6 +50,8 @@ def upload_key_bundle(db:Session,user_id:int,payload:KeyBundleUpload, device_id:
             prekey_id=payload.prekey_id,
             one_time_prekeys=one_time_prekeys_json,
             device_id=device_id,
+            identity_version=1,
+            bundle_version=1,
             kyber_prekey_public=payload.kyber_prekey_public,
             kyber_prekey_signature=payload.kyber_prekey_signature
             )
@@ -88,11 +93,14 @@ def fetch_key_bundle(db:Session,user_id:int):
     db.commit()
     return KeyBundleResponse(
         user_id=bundle.user_id,
+        device_id=bundle.device_id,
         identity_key=bundle.identity_key,
+        identity_version=bundle.identity_version or 1,
         signing_public=bundle.signing_public,
         signed_prekey=bundle.signed_prekey,
         signed_prekey_signature=bundle.signed_prekey_signature,
         prekey_id=bundle.prekey_id,
+        bundle_version=bundle.bundle_version or 1,
         one_time_prekey=otp,
         kyber_prekey_public=bundle.kyber_prekey_public,
         kyber_prekey_signature=bundle.kyber_prekey_signature

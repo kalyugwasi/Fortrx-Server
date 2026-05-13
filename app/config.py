@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     SQL_ECHO: bool = False
     PUBLIC_BASE_URL: str = "http://localhost:8000"
     ALLOWED_HOSTS: str = ""
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
     S3_REGION: str = "us-east-1"
     REDIS_URL: str
     RATE_LIMIT_STORAGE: str = "memory://"
-    MAX_SEALED_BLOB_BYTES: int = 262144
+    MAX_SEALED_BLOB_BYTES: int = 200 * 1024 * 1024
     MAX_MESSAGE_TTL_SECONDS: int = 604800
 
     @field_validator(

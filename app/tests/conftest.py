@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from contextlib import asynccontextmanager
 
 from app.main import app
-from app.database import Base, get_db
+from app.database import Base, ensure_key_bundle_schema, ensure_server_changes_schema, get_db
 from app.services.storage_service import ensure_bucket_exists
 from app.crypto.keys import (
     generate_identity_keypair,
@@ -14,7 +14,7 @@ from app.crypto.keys import (
     encode_public_key,
 )
 from limits.storage import storage_from_string
-import pytest
+
 @pytest.fixture(autouse=True)
 def control_rate_limit(request):
     from app.main import app
@@ -40,23 +40,24 @@ def _login(client, username: str, password: str) -> dict:
     )
     return resp.json()
 
-TEST_DATABASE_URL = "sqlite:///./test_fortress.db"
-
-
 # ---------------------------------------------------------------------------
 # Database fixtures
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def db_engine():
+def db_engine(tmp_path_factory):
+    db_dir = tmp_path_factory.mktemp("fortrx-server-tests")
+    db_path = db_dir / "test_fortress.db"
+    test_database_url = f"sqlite:///{db_path.as_posix()}"
     engine = create_engine(
-        TEST_DATABASE_URL,
+        test_database_url,
         connect_args={"check_same_thread": False},
     )
     Base.metadata.create_all(bind=engine)
     yield engine
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
+    db_path.unlink(missing_ok=True)
 
 
 @pytest.fixture(scope="session")
@@ -67,6 +68,8 @@ def db_session(db_engine):
     import app.database as app_database
     app_database.engine = db_engine
     app_database.SessionLocal = TestingSessionLocal
+    ensure_key_bundle_schema()
+    ensure_server_changes_schema()
     session = TestingSessionLocal()
     yield session
     session.close()
@@ -137,6 +140,8 @@ def alice_auth(client):
     data = _login(client, "alice", "alice_secret_123")
     return {
         "token": data["access_token"],
+        "refresh_token": data.get("refresh_token"),
+        "device_id": data.get("device_id"),
         "headers": {"Authorization": f"Bearer {data['access_token']}"},
     }
 
@@ -151,10 +156,14 @@ def bob_auth(client):
             "password": "bob_secret_456",
         },
     )
-    bob_id = reg.json()["id"]
     data = _login(client, "bob", "bob_secret_456")
+    me = client.get("/auth/me", headers={"Authorization": f"Bearer {data['access_token']}"})
+    assert me.status_code == 200, f"Unable to resolve bob profile: {me.status_code} {me.text}"
+    bob_id = me.json()["id"]
     return {
         "token": data["access_token"],
+        "refresh_token": data.get("refresh_token"),
+        "device_id": data.get("device_id"),
         "headers": {"Authorization": f"Bearer {data['access_token']}"},
         "id": bob_id,
     }

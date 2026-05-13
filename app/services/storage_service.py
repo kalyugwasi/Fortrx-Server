@@ -2,6 +2,7 @@ import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
 from app.config import settings
 import uuid
+from typing import Iterator
 
 def get_s3_client():
     if settings.S3_PROVIDER =="aws":
@@ -43,8 +44,8 @@ def ensure_bucket_exists():
             return
         raise
         
-def generate_blob_key(recipient_id:int):
-    return f"messages/{recipient_id}/{uuid.uuid4()}"
+def generate_blob_key(recipient_id:int, prefix: str = "messages"):
+    return f"{prefix}/{recipient_id}/{uuid.uuid4()}"
 
 def upload_blob(blob_key:str,data:bytes):
     client = get_s3_client()
@@ -56,6 +57,16 @@ def upload_blob(blob_key:str,data:bytes):
     )
     return blob_key
 
+def upload_blob_file(blob_key: str, path: str, content_type: str = "application/octet-stream"):
+    client = get_s3_client()
+    client.upload_file(
+        Filename=path,
+        Bucket=settings.S3_BUCKET_NAME,
+        Key=blob_key,
+        ExtraArgs={"ContentType": content_type},
+    )
+    return blob_key
+
 def download_blob(blob_key:str):
     client = get_s3_client()
     response = client.get_object(
@@ -63,6 +74,22 @@ def download_blob(blob_key:str):
         Key = blob_key
     )
     return response["Body"].read()
+
+def download_blob_stream(blob_key: str, chunk_size: int = 64 * 1024) -> Iterator[bytes]:
+    client = get_s3_client()
+    response = client.get_object(
+        Bucket=settings.S3_BUCKET_NAME,
+        Key=blob_key,
+    )
+    body = response["Body"]
+    try:
+        while True:
+            chunk = body.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        body.close()
 
 def delete_blob(blob_key:str):
     client = get_s3_client()

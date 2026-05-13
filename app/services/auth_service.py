@@ -1,16 +1,20 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from hmac import compare_digest
 
 from fastapi import HTTPException, status
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.crypto import (
     create_action_token,
     create_refresh_token,
     create_token_for_user,
     decode_access_token,
     hash_password,
+    password_needs_rehash,
     verify_password,
 )
 from app.models import ActionToken, Device, RefreshToken, User
@@ -64,6 +68,9 @@ def verify_user_password(db: Session, username: str, password: str) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Credentials"
         )
+    if password_needs_rehash(user_indb.hashed_password):
+        user_indb.hashed_password = hash_password(password)
+        db.commit()
     return user_indb
 
 
@@ -112,7 +119,8 @@ def issue_login_tokens(
 ) -> dict:
     device = create_or_update_device(db, user, device_name, device_id=device_id, identity_pub=identity_pub)
     access_token = create_token_for_user(user.id, user.username, device.id)
-    refresh_token = create_refresh_token(user.id, device.id)
+    refresh_token = create_refresh_token(user.id, device.id, expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    access_payload = decode_access_token(access_token) or {}
     refresh_payload = decode_access_token(refresh_token) or {}
     refresh_row = RefreshToken(
         user_id=user.id,
@@ -129,6 +137,8 @@ def issue_login_tokens(
         "token_type": "bearer",
         "refresh_token": refresh_token,
         "device_id": device.id,
+        "access_expires_at": _exp_to_ms(access_payload.get("exp")),
+        "refresh_expires_at": _exp_to_ms(refresh_payload.get("exp")),
     }
 
 
@@ -141,6 +151,66 @@ def login_user(
 ):
     user = verify_user_password(db, username, password)
     return issue_login_tokens(db, user, device_name=device_name, device_id=device_id)
+
+
+def rotate_refresh_token(
+    db: Session,
+    refresh_token: str,
+    device_name: str | None = None,
+    identity_pub: str | None = None,
+) -> dict:
+    payload = decode_access_token(refresh_token)
+    if payload is None or payload.get("type") != "refresh":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    user_id = int(payload.get("sub", 0))
+    device_id = payload.get("device_id")
+    if user_id <= 0 or not device_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    row = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user_id,
+            RefreshToken.device_id == device_id,
+            RefreshToken.revoked_at.is_(None),
+        )
+        .all()
+    )
+    matched = next((candidate for candidate in row if compare_digest(candidate.token_hash, token_hash(refresh_token))), None)
+    if matched is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not recognized")
+    if matched.expires_at <= now_ms():
+        matched.revoked_at = now_ms()
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account Disabled")
+
+    device = (
+        db.query(Device)
+        .filter(Device.id == device_id, Device.user_id == user_id)
+        .first()
+    )
+    if device is None or device.revoked_at is not None:
+        matched.revoked_at = now_ms()
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Device not active")
+
+    matched.revoked_at = now_ms()
+    db.flush()
+    refreshed = issue_login_tokens(
+        db,
+        user,
+        device_name=device_name or device.name,
+        device_id=device.id,
+        identity_pub=identity_pub or device.identity_pub,
+    )
+    return refreshed
 
 
 def persist_action_token(
@@ -250,6 +320,22 @@ def touch_device_last_seen(db: Session, user_id: int, device_id: str | None) -> 
     db.commit()
 
 
+def ensure_active_device(db: Session, user_id: int, device_id: str | None) -> Device | None:
+    if not device_id:
+        return None
+    device = (
+        db.query(Device)
+        .filter(Device.id == device_id, Device.user_id == user_id)
+        .first()
+    )
+    if device is None or device.revoked_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Device not active",
+        )
+    return device
+
+
 async def touch_device_last_seen_redis(user_id: int, device_id: str | None) -> None:
     if not device_id:
         return
@@ -259,5 +345,8 @@ async def touch_device_last_seen_redis(user_id: int, device_id: str | None) -> N
         # This avoids a DB write on every request.
         key = f"device:last_seen:{user_id}:{device_id}"
         await redis.set(key, str(now_ms()), ex=86400)
+    except (OSError, RedisError):
+        # Presence bookkeeping must not break authenticated requests.
+        return
     finally:
         await redis.aclose()

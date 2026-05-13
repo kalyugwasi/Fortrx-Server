@@ -76,6 +76,18 @@ bash ops/backup.sh
 bash ops/restore.sh <snapshot-id>
 ```
 
+**Backend Drain Dry Run:**
+
+```bash
+bash ops/drain.sh --dry-run
+```
+
+**Backend Drain For Real:**
+
+```bash
+bash ops/drain.sh --yes
+```
+
 **Backup Contents:**
 
 - A logical PostgreSQL database dump.
@@ -83,3 +95,31 @@ bash ops/restore.sh <snapshot-id>
 - Metadata related to the current environment.
 
 The remote backup script leverages `restic`, allowing any backend supported by `restic` to be used. Configure the necessary environment variables in Infisical alongside `RESTIC_REPOSITORY` and `RESTIC_PASSWORD`.
+
+## Full Backend Drain
+
+Use `ops/drain.sh` only when you intentionally want to empty the deployed backend and destroy the tagged backup recovery path.
+
+What the drain workflow does:
+
+- Stops ingress and the application writer before deleting data.
+- Reports row counts for `users`, `messages`, `contacts`, `key_bundles`, `devices`, `refresh_tokens`, `pairing_codes`, `action_tokens`, and `audit_log`.
+- Reports the object count for the `messages/` prefix in the configured `S3_BUCKET_NAME`.
+- Reports Redis key counts for presence, device-last-seen, user-event streams, and the rate-limit DB.
+- Reports matching `restic` snapshot ids tagged for the Fortrx backend environment.
+- Truncates the account-bearing PostgreSQL tables with `RESTART IDENTITY CASCADE`.
+- Deletes sealed-message objects from MinIO/S3.
+- Flushes Redis DB 0 and DB 1.
+- Deletes the matching restic snapshots and prunes them.
+- Restarts the stack and verifies `/healthz`.
+
+Blast radius:
+
+- all accounts removed
+- all pending sealed-message blobs removed
+- all device/session/refresh state removed
+- all pairing/recovery/action token state removed
+- audit history removed
+- backup recovery path intentionally destroyed
+
+Always start with `bash ops/drain.sh --dry-run` before running the destructive command.

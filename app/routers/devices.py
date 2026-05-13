@@ -46,4 +46,4 @@ def link_complete(
     payload: DeviceLinkCompleteRequest,
     db: Session = Depends(get_db),
 ):
-    return complete_device_link(db, payload.code, payload.identity_pub, payload.device_name)
+    return complete_device_link(db, payload.pairing_token, payload.code, payload.identity_pub, payload.device_name)

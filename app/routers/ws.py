@@ -1,11 +1,13 @@
 import asyncio
 import contextlib
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter,WebSocket,WebSocketDisconnect,Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.crypto import decode_access_token
+from app.models import Device
 from app.services import manager,read_user_messages,subscribe_to_user,unsubscribe_from_user
 from app.services import presence_service
 
@@ -35,6 +37,9 @@ async def websocket_endpoint(
     if not payload:
         await websocket.close(code=1008)
         return
+    if payload.get("type") != "access":
+        await websocket.close(code=1008)
+        return
     try:
         token_user_id = int(payload.get("sub"))
     except (TypeError, ValueError):
@@ -43,6 +48,16 @@ async def websocket_endpoint(
     if token_user_id!=user_id:
         await websocket.close(code=1008)
         return
+    device_id = payload.get("device_id")
+    if device_id:
+        device = (
+            db.query(Device)
+            .filter(Device.id == device_id, Device.user_id == user_id)
+            .first()
+        )
+        if device is None or device.revoked_at is not None:
+            await websocket.close(code=1008)
+            return
     session_id = f"ws:{uuid.uuid4().hex}"
     subscription = None
     await manager.connect(user_id,websocket)
@@ -75,18 +90,32 @@ async def websocket_endpoint(
             except Exception:
                 pass
 
+        async def token_expiry_listener():
+            exp_value = payload.get("exp")
+            if not exp_value:
+                return
+            try:
+                exp_ts = float(exp_value)
+            except (TypeError, ValueError):
+                return
+            delay_seconds = max(exp_ts - datetime.now(timezone.utc).timestamp(), 0.0)
+            await asyncio.sleep(delay_seconds)
+            with contextlib.suppress(Exception):
+                await websocket.close(code=4001, reason="token_expired")
+
         redis_task = asyncio.create_task(client_listener())
         ws_task = asyncio.create_task(redis_listener())
+        expiry_task = asyncio.create_task(token_expiry_listener())
 
         try:
             await asyncio.wait(
-                [redis_task,ws_task],
+                [redis_task,ws_task, expiry_task],
                 return_when=asyncio.FIRST_COMPLETED
             )
         finally:
-            for task in (redis_task, ws_task):
+            for task in (redis_task, ws_task, expiry_task):
                 task.cancel()
-            for task in (redis_task, ws_task):
+            for task in (redis_task, ws_task, expiry_task):
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
     finally:

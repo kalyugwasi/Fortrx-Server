@@ -25,3 +25,5 @@ class TokenResponse(BaseModel):
     token_type:str = "bearer"
     refresh_token:str | None = None
     device_id:str | None = None
+    access_expires_at:int | None = None
+    refresh_expires_at:int | None = None

@@ -74,7 +74,7 @@ def fetch_inbox(db:Session,user_id:int):
 def confirm_delivery(db:Session,message_id:int,user_id:int):
     message = message_repo.get_message_by_id(db, message_id)
     if not message:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Message not found")
+        return {"message":"already_confirmed"}
     
     if message.recipient_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Not allowed")

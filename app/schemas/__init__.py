@@ -14,4 +14,5 @@ from app.schemas.account import (
     BackupCodeVerifyResponse,
     DeleteAccountResponse,
 )
-from app.schemas.auth_flows import ReauthRequest, ReauthResponse, ResetPasswordRequest
+from app.schemas.attachment import AttachmentAckResponse, AttachmentDownloadHeaders, AttachmentUploadResponse
+from app.schemas.auth_flows import RefreshRequest, RefreshResponse, ReauthRequest, ReauthResponse, ResetPasswordRequest

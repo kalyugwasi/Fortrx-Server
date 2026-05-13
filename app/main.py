@@ -8,8 +8,8 @@ from slowapi.errors import RateLimitExceeded
 from app.database import Base,engine,SessionLocal,ensure_key_bundle_schema, ensure_server_changes_schema
 from app.config import settings
 import app.models,app.schemas,app.services
-from app.routers import account, auth, devices, keys, messages, ws, safety, presence
-from app.services import ensure_bucket_exists,purge_expired_messages
+from app.routers import account, attachments, auth, devices, keys, messages, ws, safety, presence
+from app.services import ensure_bucket_exists,purge_expired_attachments,purge_expired_messages
 from app.middleware import limiter,SecurityHeadersMiddleware
 
 
@@ -28,8 +28,11 @@ async def expired_message_cleanup():
         db = SessionLocal()
         try:
             deleted_count = purge_expired_messages(db)
+            deleted_attachments = purge_expired_attachments(db)
             if deleted_count > 0:
                 print(f"Purged {deleted_count} expired messages.")
+            if deleted_attachments > 0:
+                print(f"Purged {deleted_attachments} expired attachments.")
         except Exception as e:
             db.rollback()  
             print(f"Cleanup error: {e}")
@@ -51,6 +54,7 @@ app.include_router(keys.router)
 app.include_router(auth.router)
 app.include_router(devices.router)
 app.include_router(account.router)
+app.include_router(attachments.router)
 app.include_router(messages.router)
 app.include_router(ws.router)
 app.include_router(safety.router)

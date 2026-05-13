@@ -67,6 +67,21 @@ class TestAuth:
         assert isinstance(token, str)
         parts = token.split(".")
         assert len(parts) == 3, "JWT must have 3 dot-separated parts"
+        assert alice_auth["refresh_token"]
+        assert alice_auth["device_id"]
+
+    def test_refresh_rotates_access_token(self, client, alice_auth):
+        resp = client.post(
+            "/auth/refresh",
+            json={"refresh_token": alice_auth["refresh_token"]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["access_token"] != alice_auth["token"]
+        assert data["refresh_token"] != alice_auth["refresh_token"]
+        assert data["device_id"] == alice_auth["device_id"]
+        assert data["access_expires_at"] is not None
+        assert data["refresh_expires_at"] is not None
 
     def test_login_wrong_password(self, client):
         resp = client.post(
@@ -111,6 +126,12 @@ class TestAuth:
     def test_get_unknown_user_by_username(self, client, alice_auth):
         resp = client.get("/auth/users/by-username/does-not-exist", headers=alice_auth["headers"])
         assert resp.status_code == 404
+
+    def test_search_users_by_username(self, client, alice_auth):
+        resp = client.get("/auth/users/search?q=al", headers=alice_auth["headers"])
+        assert resp.status_code == 200
+        data = resp.json()
+        assert any(row["username"] == "alice" for row in data)
 
 
 # ===========================================================================
@@ -172,6 +193,8 @@ class TestKeyBundles:
         assert data["signing_public"] == encode_public_key(
             bob_keys["identity"]["signing_public"]
         )
+        assert data["bundle_version"] >= 1
+        assert data["identity_version"] >= 1
         assert data["one_time_prekey"] is not None
         # verify it is valid base64
         decoded = base64.b64decode(data["one_time_prekey"])
@@ -409,6 +432,13 @@ class TestMessaging:
         ids_after = [m["id"] for m in inbox_after]
         assert message_id not in ids_after
 
+        second_confirm = client.delete(
+            f"/messages/{message_id}/confirm",
+            headers=bob_auth["headers"],
+        )
+        assert second_confirm.status_code == 200
+        assert second_confirm.json()["message"] == "already_confirmed"
+
     def test_cannot_confirm_others_message(
         self, client, alice_auth, bob_auth, alice_keys, bob_keys
     ):
@@ -509,6 +539,53 @@ class TestMessaging:
         ids = [m["id"] for m in inbox]
         
         assert message_id not in ids
+
+
+# ===========================================================================
+# BLOCK 5 — Devices
+# ===========================================================================
+
+class TestDevices:
+
+    def test_start_device_link_returns_pairing_payload(self, client, alice_auth):
+        resp = client.post("/devices/link/start", headers=alice_auth["headers"])
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["pairing_token"]
+        assert data["numeric_code"]
+        assert data["pairing_uri"]
+        assert "pairing_token=" not in data["pairing_uri"]
+
+    def test_complete_device_link_requires_token_and_code(self, client, alice_auth):
+        start = client.post("/devices/link/start", headers=alice_auth["headers"]).json()
+        resp = client.post(
+            "/devices/link/complete",
+            json={
+                "pairing_token": start["pairing_token"],
+                "code": start["numeric_code"],
+                "identity_pub": encode_public_key(generate_identity_keypair()["dh_public"]),
+                "device_name": "Linked Desktop",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["access_token"]
+        assert data["refresh_token"]
+        assert data["device_id"]
+        assert data["token_type"] == "bearer"
+
+    def test_complete_device_link_rejects_wrong_code(self, client, alice_auth):
+        start = client.post("/devices/link/start", headers=alice_auth["headers"]).json()
+        resp = client.post(
+            "/devices/link/complete",
+            json={
+                "pairing_token": start["pairing_token"],
+                "code": "000 000",
+                "identity_pub": encode_public_key(generate_identity_keypair()["dh_public"]),
+                "device_name": "Bad Device",
+            },
+        )
+        assert resp.status_code == 401
 
 
 # ===========================================================================
