@@ -18,7 +18,7 @@ sudo_run apt-get update
 sudo_run apt-get install -y fail2ban
 
 mkdir -p "$APP_DIR/ops/host/logs"
-touch "$LOG_PATH"
+sudo_run touch "$LOG_PATH"
 
 sudo_run tee "$FAIL2BAN_FILTER" >/dev/null <<EOF
 [Definition]

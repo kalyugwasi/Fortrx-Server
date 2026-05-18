@@ -268,6 +268,7 @@ start_prod() {
   install_infisical
   export_prod_env
   mkdir -p "$REPO_ROOT/ops/host/logs"
+  touch "$REPO_ROOT/ops/host/logs/caddy-access.log"
   chmod 750 "$REPO_ROOT/ops/host/logs"
 
   say "Starting the production stack"
